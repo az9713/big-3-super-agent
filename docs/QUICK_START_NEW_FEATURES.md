@@ -1,6 +1,6 @@
-# Quick Start Guide - New Features (v2.0)
+# Quick Start Guide - New Features (v2.0 + v2.1)
 
-This guide helps you quickly get started with the five new features added in v2.0.
+This guide helps you quickly get started with all seven features (v2.0: 5 features, v2.1: 2 features).
 
 ## Prerequisites
 
@@ -281,6 +281,173 @@ Check `docs/features/02-voice-command-macros.md` for complete macro examples inc
 
 ---
 
+## Feature 6: Voice-Activated Debugging Assistant (v2.1)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.debugging import DebuggingSession
+>>>
+>>> # Initialize session
+>>> session = DebuggingSession()
+>>>
+>>> # Analyze an error
+>>> error_text = """
+... Traceback (most recent call last):
+...   File "app.py", line 42, in process_data
+...     result = data['key']
+... KeyError: 'key'
+... """
+>>>
+>>> analysis = session.analyze_error(error_text)
+>>> print(f"Error: {analysis['error_type']}")
+>>> print(f"Severity: {analysis['severity']}")
+>>>
+>>> # Get likely causes
+>>> print("\nLikely Causes:")
+>>> for cause in analysis['likely_causes']:
+...     print(f"  - {cause}")
+>>>
+>>> # Get fix suggestions
+>>> print("\nSuggested Fixes:")
+>>> for fix in analysis['suggested_fixes']:
+...     print(f"  - {fix}")
+>>>
+>>> # Generate fix code
+>>> fix_code = session.generate_fix_code()
+>>> print(f"\nGenerated Fix:\n{fix_code[:200]}...")
+>>>
+>>> # Suggest breakpoints
+>>> breakpoints = session.suggest_breakpoints()
+>>> print("\nBreakpoint Suggestions:")
+>>> for bp in breakpoints[:3]:
+...     print(f"  {bp['file']}:{bp['line']} - {bp['reason']}")
+```
+
+### Log Analysis Example
+
+```python
+>>> from apps.realtime_poc.features.debugging import LogAnalyzer
+>>>
+>>> analyzer = LogAnalyzer()
+>>>
+>>> # Analyze logs for errors
+>>> result = analyzer.analyze_logs("/var/log/app.log", recent_lines=100)
+>>> print(f"Total Errors: {result['total_errors']}")
+>>> print(f"Total Warnings: {result['total_warnings']}")
+>>>
+>>> # Show error groups
+>>> print("\nError Groups:")
+>>> for error_type, count in result['error_groups'].items():
+...     print(f"  {error_type}: {count}")
+>>>
+>>> # Search logs for specific term
+>>> matches = analyzer.search_logs("/var/log/app.log", "database", context_lines=2)
+>>> print(f"\nFound {len(matches)} matches")
+>>> if matches:
+...     print(f"First match: {matches[0]['match']}")
+```
+
+### What It Does
+
+- **Stack Trace Parsing**: Extracts error type, message, and stack frames from Python tracebacks
+- **Root Cause Analysis**: Matches error patterns to known issues and suggests likely causes
+- **Fix Generation**: Creates code snippets to fix common errors (AttributeError, KeyError, etc.)
+- **Log Analysis**: Finds errors in log files, groups by type, extracts timestamps
+- **Breakpoint Suggestions**: Recommends optimal debugging locations based on stack analysis
+- **Interactive Sessions**: Manages complete debugging workflows
+
+---
+
+## Feature 7: Natural Language Testing Framework (v2.1)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.testing import TestingSession
+>>>
+>>> # Initialize session
+>>> session = TestingSession(project_root=".")
+>>>
+>>> # Generate a test from natural language
+>>> result = session.create_and_run_test(
+...     test_description="Test that user login validates email format",
+...     target_file="backend/auth.py",
+...     language="python",
+...     auto_run=False  # Don't run automatically for this demo
+... )
+>>>
+>>> print(f"Test File: {result['test_file_written']}")
+>>> print(f"\nGenerated Test Code:")
+>>> print(result['test_code'][:300])
+>>>
+>>> # Run all tests with coverage
+>>> all_results = session.run_all_tests(language="python", coverage=True)
+>>> print(f"\nAll Tests:")
+>>> print(f"  Total: {all_results['total']}")
+>>> print(f"  Passed: {all_results['passed']}")
+>>> print(f"  Failed: {all_results['failed']}")
+>>>
+>>> # Get coverage report
+>>> if 'coverage_analysis' in all_results:
+...     coverage_pct = all_results['coverage_analysis']['overall_coverage']
+...     print(f"  Coverage: {coverage_pct}%")
+```
+
+### Coverage Analysis Example
+
+```python
+>>> from apps.realtime_poc.features.testing import CoverageAnalyzer
+>>>
+>>> analyzer = CoverageAnalyzer(project_root=".")
+>>>
+>>> # Analyze Python coverage
+>>> coverage = analyzer.analyze_python_coverage("coverage.json")
+>>> print(f"Overall Coverage: {coverage['overall_coverage']}%")
+>>>
+>>> # Get files with low coverage
+>>> print("\nFiles with Low Coverage:")
+>>> for file_data in coverage['coverage_gaps'][:5]:
+...     print(f"  {file_data['file']}: {file_data['coverage']}%")
+...     print(f"    Missing {file_data['missing']} lines")
+>>>
+>>> # Get test suggestions
+>>> suggestions = analyzer.suggest_missing_tests(coverage)
+>>> print("\nTest Suggestions:")
+>>> for suggestion in suggestions[:3]:
+...     print(f"  [{suggestion['priority'].upper()}] {suggestion['file']}")
+...     print(f"    {suggestion['suggestion']}")
+```
+
+### Test Generation Example
+
+```python
+>>> from apps.realtime_poc.features.testing import TestGenerator
+>>>
+>>> generator = TestGenerator()
+>>>
+>>> # Generate Python test
+>>> result = generator.generate_python_test(
+...     test_description="Test that divide function raises error for division by zero",
+...     target_file="backend/calculator.py",
+...     target_function="divide"
+... )
+>>>
+>>> print("Generated Test:")
+>>> print(result['test_code'])
+```
+
+### What It Does
+
+- **Natural Language to Test**: Converts plain English descriptions to pytest/Jest test code
+- **Test Type Detection**: Automatically identifies unit, integration, or E2E tests
+- **Arrange-Act-Assert**: Generates proper test structure with setup, execution, and assertions
+- **Test Execution**: Runs tests and parses results (passed, failed, output)
+- **Coverage Analysis**: Identifies coverage gaps and suggests missing tests
+- **Multi-Framework**: Supports Python (pytest) and JavaScript (Jest)
+
+---
+
 ## Integration with Voice Agent
 
 All features are designed to integrate with the main voice agent. See `docs/IMPLEMENTATION_GUIDE.md` for complete integration instructions.
@@ -311,6 +478,20 @@ All features are designed to integrate with the main voice agent. See `docs/IMPL
 - "Commit my changes with an AI message"
 - "Create a pull request"
 - "Resolve merge conflicts"
+
+**Debugging Assistant** (v2.1):
+- "Analyze this error: [paste error text]"
+- "Debug the AttributeError in app.py"
+- "Check the logs for database errors"
+- "Suggest a fix for this KeyError"
+- "Where should I set breakpoints?"
+
+**Testing Framework** (v2.1):
+- "Generate tests for the authentication module"
+- "Create a test that validates email format"
+- "Run all tests"
+- "Show me test coverage"
+- "Which files need more tests?"
 
 ---
 
