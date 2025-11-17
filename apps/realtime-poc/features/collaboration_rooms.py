@@ -169,8 +169,8 @@ class CollaborationRoom:
             }
             self.shared_context["decisions"].append(decision_record)
             self.update_operator_log(
-                f"**[Decision]** {decision}\n"
-                f"Rationale: {rationale}\n"
+                f"**[Decision]** {decision}\n" +
+                f"Rationale: {rationale}\n" +
                 f"Participants: {', '.join(participants)}"
             )
 
@@ -363,8 +363,8 @@ class CollaborationRoomManager:
             room.add_task(task)
 
             room.update_operator_log(
-                f"**[Task Created]** Assigned to {assign_to}\n"
-                f"Description: {task_description}\n"
+                f"**[Task Created]** Assigned to {assign_to}\n" +
+                f"Description: {task_description}\n" +
                 f"Task ID: {task.task_id}"
             )
 
