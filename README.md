@@ -21,6 +21,13 @@ This release adds five powerful features that transform the system into a compre
 4. **🔍 Interactive Voice Code Review** - Natural language code reviews with multi-dimensional analysis (security, performance, style)
 5. **🔄 Intelligent Git Assistant** - Voice-controlled git operations with AI-generated commit messages and PR descriptions
 
+## 🚀 Phase 1 Features (v2.1)
+
+Building on v2.0, Phase 1 adds two high-value features focused on developer productivity:
+
+6. **🐛 Voice-Activated Debugging Assistant** - Analyzes errors, stack traces, and logs to provide intelligent debugging assistance with automated fix suggestions
+7. **🧪 Natural Language Testing Framework** - Generate and execute tests from plain English descriptions with automated coverage analysis
+
 See [IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md) for detailed usage and integration instructions.
 
 ## Requirements
@@ -127,12 +134,15 @@ big-3-super-agent/
 │   ├── CODEBASE_DOCUMENTATION.md    # Full system documentation
 │   ├── FEATURE_PROPOSALS.md         # Feature overview
 │   ├── IMPLEMENTATION_GUIDE.md      # Implementation & usage guide
+│   ├── QUICK_START_NEW_FEATURES.md  # Quick start for all features
 │   └── features/                    # Detailed feature docs
-│       ├── 01-multi-agent-collaboration-rooms.md
-│       ├── 02-voice-command-macros.md
-│       ├── 03-agent-performance-analytics.md
-│       ├── 04-interactive-voice-code-review.md
-│       └── 05-intelligent-version-control-assistant.md
+│       ├── 01-multi-agent-collaboration-rooms.md (v2.0)
+│       ├── 02-voice-command-macros.md (v2.0)
+│       ├── 03-agent-performance-analytics.md (v2.0)
+│       ├── 04-interactive-voice-code-review.md (v2.0)
+│       ├── 05-intelligent-version-control-assistant.md (v2.0)
+│       ├── 06-debugging-assistant.md (v2.1)
+│       └── 07-testing-framework.md (v2.1)
 ├── apps/
 │   ├── content-gen/           # Agent working directory (default - you can change this to any directory you want)
 │   │   ├── agents/            # Agent session registries
@@ -145,12 +155,14 @@ big-3-super-agent/
 │   │   └── logs/              # Agent execution logs
 │   └── realtime-poc/          # Main orchestrator
 │       ├── big_three_realtime_agents.py  # Main entry point
-│       ├── features/          # New feature modules (v2.0)
-│       │   ├── collaboration_rooms.py   # Multi-agent coordination
-│       │   ├── macros.py                # Workflow automation
-│       │   ├── analytics.py             # Performance metrics
-│       │   ├── code_review.py           # Code analysis
-│       │   └── git_assistant.py         # Git operations
+│       ├── features/          # New feature modules (v2.0 + v2.1)
+│       │   ├── collaboration_rooms.py   # Multi-agent coordination (v2.0)
+│       │   ├── macros.py                # Workflow automation (v2.0)
+│       │   ├── analytics.py             # Performance metrics (v2.0)
+│       │   ├── code_review.py           # Code analysis (v2.0)
+│       │   ├── git_assistant.py         # Git operations (v2.0)
+│       │   ├── debugging.py             # Debugging assistant (v2.1)
+│       │   └── testing.py               # Testing framework (v2.1)
 │       ├── prompts/           # System prompts for agents
 │       │   └── super_agent/   # Orchestrator prompts
 │       └── output_logs/       # Voice agent logs & screenshots
@@ -264,13 +276,20 @@ This project is powered by cutting-edge AI technologies:
 - **[Astral uv](https://docs.astral.sh/uv/)** - Fast Python package management and script execution
 - **[Tactical Agentic Coding](https://agenticengineer.com/tactical-agentic-coding)** - Agentic coding patterns and best practices
 
-## ✅ Implemented Features (v2.0)
+## ✅ Implemented Features
 
+**v2.0 (5 features)**:
 - **✅ Multi-agent coordination**: Collaboration rooms enable multiple agents to work together with shared context
 - **✅ Workflow automation**: Voice macros allow complex multi-step workflows with single commands
 - **✅ Cost tracking**: Comprehensive analytics with cost breakdown by agent, task type, and project
 - **✅ Code quality**: Interactive voice code review with security, performance, and style analysis
 - **✅ Git integration**: Intelligent git assistant with AI-powered commit messages and PR descriptions
+
+**v2.1 Phase 1 (2 features)**:
+- **✅ Debugging assistance**: Voice-activated debugging with error analysis, fix suggestions, and log analysis
+- **✅ Test automation**: Natural language test generation with coverage analysis and gap identification
+
+**Infrastructure**:
 - **✅ Modular architecture**: Features implemented as separate modules in `apps/realtime-poc/features/`
 - **✅ Zero doc debt**: Complete documentation for codebase and all features
 
