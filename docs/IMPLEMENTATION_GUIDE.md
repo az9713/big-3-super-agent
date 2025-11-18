@@ -1,6 +1,6 @@
 # Implementation Guide - New Features
 
-This guide explains how all seven features have been implemented and how to use them.
+This guide explains how all nine features have been implemented and how to use them.
 
 ## Overview
 
@@ -16,6 +16,10 @@ All features have been implemented as modular Python packages in `apps/realtime-
 **v2.1 Features (Phase 1)**:
 6. **Debugging Assistant** (`debugging.py`)
 7. **Testing Framework** (`testing.py`)
+
+**v2.2 Features (Phase 2)**:
+8. **Agent Memory & Learning** (`memory.py`)
+9. **Cross-Repository Orchestration** (`cross_repo.py`)
 
 ## Feature 1: Multi-Agent Collaboration Rooms
 
@@ -932,9 +936,221 @@ python3
 
 ---
 
+---
+
+## Feature 8: Agent Memory & Learning System
+
+### Implementation
+
+**Location**: `apps/realtime-poc/features/memory.py`
+
+**Key Classes**:
+- `MemoryStore`: SQLite-based persistent storage for interactions, patterns, and knowledge
+- `PatternLearner`: Identifies success patterns, failure patterns, and duration patterns
+- `KnowledgeBase`: Searchable repository with category-based organization
+- `LearningSession`: Interactive learning workflows with recommendations
+
+**Features Implemented**:
+- ✅ Interaction recording with complete context
+- ✅ Pattern learning (successful approaches, common failures, duration patterns)
+- ✅ Knowledge base with full-text search
+- ✅ Pattern-based recommendations
+- ✅ Performance tracking and statistics
+- ✅ Thread-safe operations
+
+### Usage Example
+
+```python
+from features.memory import LearningSession
+
+# Initialize session
+session = LearningSession()
+
+# Record an interaction
+interaction_id = session.record_interaction(
+    agent_name="claude_code",
+    task_type="implement_feature",
+    task_description="Implement user authentication",
+    approach="Used Flask-JWT-Extended",
+    outcome="Feature implemented successfully",
+    success=True,
+    duration_seconds=45.3,
+    tags=["authentication", "jwt"]
+)
+
+# Get recommendations for new task
+recs = session.get_recommendations("implement_feature")
+for rec in recs['pattern_recommendations']:
+    print(f"- {rec['recommendation']} (confidence: {rec['confidence']*100:.0f}%)")
+
+# Learn patterns from historical data
+patterns = session.learn_patterns(min_occurrences=3)
+print(f"Learned {len(patterns)} patterns")
+
+# Add knowledge
+knowledge_id = session.add_knowledge(
+    category="authentication",
+    title="JWT Best Practices",
+    content="Use RS256, set expiration, implement token rotation",
+    tags=["jwt", "security"]
+)
+
+# Search knowledge
+results = session.search_knowledge("JWT security")
+```
+
+### Integration Points
+
+The main voice agent can integrate memory by:
+
+1. Recording every task execution
+2. Getting recommendations before starting tasks
+3. Periodically learning patterns
+4. Searching knowledge base for solutions
+
+**New Voice Commands**:
+- "What's the best way to implement authentication?"
+- "Remember this approach for database tasks"
+- "Search knowledge for JWT security"
+- "How am I performing?"
+- "Learn patterns from recent tasks"
+
+---
+
+## Feature 9: Cross-Repository Agent Orchestration
+
+### Implementation
+
+**Location**: `apps/realtime-poc/features/cross_repo.py`
+
+**Key Classes**:
+- `RepositoryRegistry`: Manages multiple repositories with metadata
+- `CrossRepoTask`: Tasks spanning multiple repos with dependency tracking
+- `DependencyResolver`: Topological sort for task execution order
+- `CrossRepoOrchestrator`: Coordinates multi-repo workflows
+- `CrossRepoSession`: Interactive multi-repo task management
+
+**Features Implemented**:
+- ✅ Repository registration and status tracking
+- ✅ Cross-repo task creation with dependencies
+- ✅ Dependency resolution (topological sort)
+- ✅ Task execution control (start, complete, fail)
+- ✅ Repository synchronization with Git
+- ✅ Workflow creation and execution
+
+### Usage Example
+
+```python
+from features.cross_repo import CrossRepoSession
+
+# Initialize session
+session = CrossRepoSession()
+
+# Register repositories
+session.register_repositories([
+    {"name": "frontend", "path": "/projects/frontend"},
+    {"name": "backend", "path": "/projects/backend"},
+    {"name": "shared-lib", "path": "/projects/shared"}
+])
+
+# Create workflow
+workflow = session.create_workflow(
+    workflow_name="Add User Authentication",
+    tasks=[
+        {
+            "name": "Update Shared Library",
+            "description": "Add auth utilities",
+            "repositories": ["shared-lib"],
+            "dependencies": []
+        },
+        {
+            "name": "Implement Backend Auth",
+            "description": "Add auth endpoints",
+            "repositories": ["backend"],
+            "dependencies": ["Update Shared Library"]
+        },
+        {
+            "name": "Add Frontend UI",
+            "description": "Add login forms",
+            "repositories": ["frontend"],
+            "dependencies": ["Implement Backend Auth"]
+        }
+    ]
+)
+
+print(f"Created {workflow['tasks_created']} tasks")
+print(f"Execution plan: {len(workflow['execution_plan'])} levels")
+
+# Execute tasks level by level
+results = session.execute_next_tasks()
+for result in results:
+    print(f"Started: {result['task_id']}")
+
+# Sync all repositories
+sync_results = session.sync_all_repositories()
+```
+
+### Integration Points
+
+The main voice agent can integrate cross-repo orchestration by:
+
+1. Registering project repositories
+2. Creating multi-repo workflows from natural language
+3. Executing tasks in dependency order
+4. Syncing repositories before/after changes
+
+**New Voice Commands**:
+- "Register repository myapp-frontend at /path/to/repo"
+- "Create workflow to update auth in backend and frontend"
+- "Execute next available tasks"
+- "Sync all repositories"
+- "Show workflow status"
+
+---
+
+## Testing the New Features (v2.2)
+
+### Test Memory System
+
+```bash
+python3
+>>> from features.memory import LearningSession
+>>> session = LearningSession()
+>>> # Record interactions
+>>> for i in range(5):
+...     session.record_interaction(
+...         agent_name="test", task_type="test_task",
+...         task_description=f"Test {i}", approach="same",
+...         outcome="Success", success=True
+...     )
+>>> # Learn patterns
+>>> patterns = session.learn_patterns(min_occurrences=3)
+>>> print(f"Learned {len(patterns)} patterns")
+>>> # Get stats
+>>> stats = session.get_session_stats()
+>>> print(f"Success rate: {stats['success_rate']}%")
+```
+
+### Test Cross-Repo Orchestration
+
+```bash
+python3
+>>> from features.cross_repo import DependencyResolver
+>>> resolver = DependencyResolver()
+>>> resolver.add_dependency('task2', 'task1')
+>>> resolver.add_dependency('task3', 'task1')
+>>> order = resolver.get_execution_order(['task1', 'task2', 'task3'])
+>>> print(f"Execution order: {len(order)} levels")
+>>> print(f"Level 1: {order[0]}")  # Should have task1
+>>> print(f"Level 2: {order[1]}")  # Should have task2, task3
+```
+
+---
+
 ## Conclusion
 
-All seven features are now fully implemented and ready for integration. Each feature is modular, well-documented, and can be used independently or together for a comprehensive AI-powered development experience.
+All nine features are now fully implemented and ready for integration. Each feature is modular, well-documented, and can be used independently or together for a comprehensive AI-powered development experience.
 
 **v2.0 Features** (5): Collaboration Rooms, Voice Macros, Analytics, Code Review, Git Assistant
 **v2.1 Features** (2): Debugging Assistant, Testing Framework
+**v2.2 Features** (2): Agent Memory & Learning, Cross-Repository Orchestration
