@@ -399,7 +399,8 @@ class CrossRepoOrchestrator:
 
         executable = []
         for task_id, task in self.tasks.items():
-            if task.status == TaskStatus.PENDING:
+            # Include both PENDING and WAITING_DEPENDENCY tasks
+            if task.status in [TaskStatus.PENDING, TaskStatus.WAITING_DEPENDENCY]:
                 if self.dependency_resolver.can_execute(task_id, completed_tasks):
                     executable.append(task_id)
 
