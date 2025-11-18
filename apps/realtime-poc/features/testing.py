@@ -387,7 +387,7 @@ class TestExecutor:
             cmd.append("-v")
 
         if coverage:
-            cmd.extend(["--cov", "--cov-report=json"])
+            cmd.extend(["--cov=.", "--cov-report=json"])
 
         try:
             result = subprocess.run(

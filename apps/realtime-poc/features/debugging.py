@@ -465,12 +465,14 @@ class DebuggingSession:
         # Add breakpoints at function entry points in stack
         frames = self.current_error.get("frames", [])
         for frame in frames[-3:]:  # Last 3 frames
-            if frame["file"] != crash_point.get("file"):
-                suggestions.append({
-                    "file": frame["file"],
-                    "line": frame["line"],
-                    "reason": f"In {frame['function']}() - check parameters",
-                })
+            # Skip if this is the crash point (avoid duplicates)
+            if crash_point and frame["file"] == crash_point.get("file") and frame["line"] == crash_point.get("line"):
+                continue
+            suggestions.append({
+                "file": frame["file"],
+                "line": frame["line"],
+                "reason": f"In {frame['function']}() - check parameters",
+            })
 
         return suggestions[:5]  # Limit to 5 suggestions
 
