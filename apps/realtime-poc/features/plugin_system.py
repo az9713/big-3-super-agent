@@ -625,8 +625,24 @@ class PluginManager:
                 # Try to install
                 self.install_plugin(plugin_source)
             except ValueError as e:
-                # Already installed, skip
-                if "already installed" not in str(e):
+                # If already installed, load it into memory
+                if "already installed" in str(e):
+                    try:
+                        # Load plugin module
+                        if plugin_source.is_file():
+                            plugin = self.loader.load_plugin_from_file(plugin_source)
+                        else:
+                            plugin = self.loader.load_plugin_from_directory(plugin_source)
+
+                        # Get metadata
+                        metadata = plugin.get_metadata()
+
+                        # Store in loaded_plugins
+                        with self.lock:
+                            self.loaded_plugins[metadata.id] = plugin
+                    except Exception as load_error:
+                        print(f"Error loading installed plugin {plugin_source}: {load_error}")
+                else:
                     print(f"Warning: Failed to load {plugin_source}: {e}")
             except Exception as e:
                 print(f"Error loading {plugin_source}: {e}")
