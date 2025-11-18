@@ -1,6 +1,6 @@
-# Quick Start Guide - New Features (v2.0 + v2.1)
+# Quick Start Guide - New Features (v2.0 + v2.1 + v2.2)
 
-This guide helps you quickly get started with all seven features (v2.0: 5 features, v2.1: 2 features).
+This guide helps you quickly get started with all nine features (v2.0: 5 features, v2.1: 2 features, v2.2: 2 features).
 
 ## Prerequisites
 
@@ -448,6 +448,133 @@ Check `docs/features/02-voice-command-macros.md` for complete macro examples inc
 
 ---
 
+## Feature 8: Agent Memory & Learning System (v2.2)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.memory import LearningSession
+>>>
+>>> # Initialize session
+>>> session = LearningSession()
+>>>
+>>> # Record interactions
+>>> for i in range(5):
+...     session.record_interaction(
+...         agent_name="test_agent",
+...         task_type="implement_feature",
+...         task_description=f"Feature {i}",
+...         approach="TDD approach",
+...         outcome="Success",
+...         success=True,
+...         duration_seconds=30.0 + i,
+...         tags=["feature", "tdd"]
+...     )
+>>>
+>>> # Learn patterns
+>>> patterns = session.learn_patterns(min_occurrences=3)
+>>> print(f"Learned {len(patterns)} patterns")
+>>>
+>>> # Get recommendations
+>>> recs = session.get_recommendations("implement_feature")
+>>> print(f"Recommendations: {len(recs['pattern_recommendations'])}")
+>>> for rec in recs['pattern_recommendations']:
+...     print(f"  - {rec['recommendation']}")
+>>>
+>>> # Add knowledge
+>>> knowledge_id = session.add_knowledge(
+...     category="testing",
+...     title="TDD Best Practices",
+...     content="Write tests first, then implement",
+...     tags=["tdd", "testing"]
+... )
+>>>
+>>> # Search knowledge
+>>> results = session.search_knowledge("TDD")
+>>> print(f"Found {len(results)} knowledge entries")
+>>>
+>>> # Get session stats
+>>> stats = session.get_session_stats()
+>>> print(f"Success rate: {stats['success_rate']}%")
+>>> print(f"Patterns learned: {stats['patterns_learned']}")
+```
+
+### What It Does
+
+- **Records Interactions**: Stores every agent task with approach, outcome, duration
+- **Learns Patterns**: Identifies successful approaches, common failures, duration patterns
+- **Builds Knowledge**: Creates searchable knowledge base from successful interactions
+- **Provides Recommendations**: Suggests approaches based on historical success
+- **Tracks Performance**: Monitors improvement over time through success rates
+- **Enables Search**: Query past solutions and learned knowledge
+
+---
+
+## Feature 9: Cross-Repository Agent Orchestration (v2.2)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.cross_repo import CrossRepoSession
+>>> import tempfile
+>>> import os
+>>>
+>>> # Create test directories
+>>> with tempfile.TemporaryDirectory() as tmpdir:
+...     repo1_path = os.path.join(tmpdir, "repo1")
+...     repo2_path = os.path.join(tmpdir, "repo2")
+...     os.makedirs(repo1_path)
+...     os.makedirs(repo2_path)
+...
+...     # Initialize session
+...     session = CrossRepoSession()
+...
+...     # Register repositories
+...     repos = session.register_repositories([
+...         {"name": "frontend", "path": repo1_path},
+...         {"name": "backend", "path": repo2_path}
+...     ])
+...     print(f"Registered {len(repos)} repositories")
+...
+...     # Create workflow
+...     workflow = session.create_workflow(
+...         workflow_name="Update Authentication",
+...         tasks=[
+...             {
+...                 "name": "Update Backend API",
+...                 "description": "Add new auth endpoints",
+...                 "repositories": ["backend"],
+...                 "dependencies": []
+...             },
+...             {
+...                 "name": "Update Frontend UI",
+...                 "description": "Add login form",
+...                 "repositories": ["frontend"],
+...                 "dependencies": ["Update Backend API"]
+...             }
+...         ]
+...     )
+...
+...     print(f"Created {workflow['tasks_created']} tasks")
+...     print(f"Execution plan: {len(workflow['execution_plan'])} levels")
+...
+...     # Get status
+...     status = session.get_session_status()
+...     print(f"Total tasks: {status['total_tasks']}")
+...     print(f"Status: {status['status_breakdown']}")
+```
+
+### What It Does
+
+- **Manages Repositories**: Centralized registry of all repositories with status tracking
+- **Coordinates Tasks**: Execute tasks across repos with dependency management
+- **Resolves Dependencies**: Topological sort ensures correct execution order
+- **Synchronizes State**: Keep repos in sync with remote branches
+- **Assigns Agents**: Route tasks to appropriate agents per repository
+- **Tracks Progress**: Monitor multi-repo workflow execution
+
+---
+
 ## Integration with Voice Agent
 
 All features are designed to integrate with the main voice agent. See `docs/IMPLEMENTATION_GUIDE.md` for complete integration instructions.
@@ -492,6 +619,20 @@ All features are designed to integrate with the main voice agent. See `docs/IMPL
 - "Run all tests"
 - "Show me test coverage"
 - "Which files need more tests?"
+
+**Agent Memory & Learning** (v2.2):
+- "What's the best way to implement authentication?"
+- "Remember this approach for database tasks"
+- "Search knowledge for JWT security"
+- "How am I performing?"
+- "Learn patterns from recent tasks"
+
+**Cross-Repository Orchestration** (v2.2):
+- "Register repository myapp-frontend at /path/to/repo"
+- "Create workflow to update auth in backend and frontend"
+- "Execute next available tasks"
+- "Sync all repositories"
+- "Show workflow status"
 
 ---
 
