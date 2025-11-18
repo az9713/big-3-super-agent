@@ -1108,7 +1108,362 @@ The main voice agent can integrate cross-repo orchestration by:
 
 ---
 
-## Testing the New Features (v2.2)
+## Feature 10: Session Persistence & Recovery System (v2.3)
+
+### Overview
+
+The Session Persistence & Recovery System provides comprehensive session management with automatic conversation history persistence, session resume capabilities, crash recovery, and state rollback.
+
+**Module**: `apps/realtime-poc/features/session_persistence.py`
+**Documentation**: `docs/features/10-session-persistence-recovery.md`
+
+### Core Components
+
+- **SessionManager**: High-level session management API
+- **SessionStore**: SQLite-based persistence layer
+- **RecoveryManager**: Crash detection and recovery
+- **SessionExporter**: Import/export functionality
+
+### Basic Usage
+
+**Start and manage session:**
+```python
+from features.session_persistence import SessionManager, MessageRole
+
+# Initialize manager
+manager = SessionManager()
+
+# Start new session
+session = manager.start_session(
+    title="Video Feature Development",
+    description="Implementing video generation UI"
+)
+
+# Add messages
+manager.add_message(
+    role=MessageRole.USER,
+    content="Create a new video component"
+)
+
+manager.add_message(
+    role=MessageRole.ASSISTANT,
+    content="I'll create the component now..."
+)
+
+# End session
+manager.end_session()
+```
+
+**Resume interrupted session:**
+```python
+# List available sessions
+sessions = manager.list_sessions()
+
+# Resume specific session
+recovery_data = manager.resume_session("session-123")
+
+# Access conversation history
+history = recovery_data['messages']
+for msg in history:
+    print(f"[{msg.role.value}] {msg.content[:50]}...")
+```
+
+**Create checkpoints:**
+```python
+from features.session_persistence import AgentState
+
+# Create manual checkpoint
+checkpoint = manager.create_checkpoint(
+    description="UI complete, starting backend",
+    agent_states=[
+        AgentState(
+            agent_name="nova",
+            agent_type="claude_code",
+            session_id=session.id,
+            status="active",
+            current_task="Implementing backend API",
+            operator_file="operator_123.txt",
+            created_at=datetime.now().isoformat()
+        )
+    ],
+    system_state={"phase": "backend", "tests_passing": True}
+)
+```
+
+**Rollback to checkpoint:**
+```python
+# Get snapshots
+snapshots = manager.store.get_snapshots(session.id)
+
+# Rollback to specific checkpoint
+rollback_data = manager.recovery.rollback_to_snapshot(
+    session.id,
+    snapshots[0].id
+)
+
+# Restore state
+messages = rollback_data['messages']
+agent_states = rollback_data['agent_states']
+```
+
+**Export and import:**
+```python
+from features.session_persistence import SessionExporter
+
+exporter = SessionExporter(manager.store)
+
+# Export session
+json_path = exporter.export_session(
+    session.id,
+    format="json",
+    include_snapshots=True
+)
+
+# Import session
+imported = exporter.import_session(json_path)
+```
+
+### Integration with Voice Agent
+
+```python
+# In OpenAIRealtimeVoiceAgent.__init__
+from features.session_persistence import SessionManager
+
+self.session_manager = SessionManager()
+self.current_session = self.session_manager.start_session(
+    title="Voice Agent Session"
+)
+
+# Track messages
+def on_user_message(self, message: str):
+    self.session_manager.add_message(
+        role=MessageRole.USER,
+        content=message
+    )
+
+# Auto-snapshots every 100 messages
+# Create checkpoints on critical events
+```
+
+### Voice Commands
+
+- "Save checkpoint with description [text]" - Create manual checkpoint
+- "List my checkpoints" - Show all checkpoints
+- "Roll back to checkpoint [id]" - Restore previous state
+- "Export this session" - Export to file
+- "Resume session [id]" - Continue previous session
+
+---
+
+## Feature 11: Plugin System & Custom Tools (v2.3)
+
+### Overview
+
+The Plugin System provides an extensibility framework for creating custom agent tools and integrating third-party services through a plugin architecture.
+
+**Module**: `apps/realtime-poc/features/plugin_system.py`
+**Documentation**: `docs/features/11-plugin-system-custom-tools.md`
+
+### Core Components
+
+- **PluginManager**: High-level plugin management
+- **Plugin**: Base class for all plugins
+- **PluginLoader**: Load plugins from files/directories
+- **PluginRegistry**: Plugin metadata storage
+
+### Creating a Simple Plugin
+
+**Create plugin file `plugins/installed/weather_plugin.py`:**
+```python
+from features.plugin_system import (
+    Plugin,
+    PluginMetadata,
+    ToolDefinition,
+    ToolParameter,
+    ToolParameterType
+)
+
+
+class WeatherPlugin(Plugin):
+    """Get weather information"""
+
+    def get_metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            id="weather-plugin",
+            name="Weather Plugin",
+            version="1.0.0",
+            description="Get weather for any location",
+            author="Your Name",
+            tags=["weather", "api"]
+        )
+
+    def get_tools(self) -> List[ToolDefinition]:
+        return [
+            ToolDefinition(
+                name="get_weather",
+                description="Get current weather",
+                parameters=[
+                    ToolParameter(
+                        name="location",
+                        type=ToolParameterType.STRING,
+                        description="City name",
+                        required=True
+                    )
+                ],
+                returns="Weather information"
+            )
+        ]
+
+    def execute_tool(self, tool_name: str, parameters: dict):
+        if tool_name == "get_weather":
+            location = parameters["location"]
+            # Call weather API
+            return {
+                "location": location,
+                "temperature": 72,
+                "conditions": "Sunny"
+            }
+```
+
+### Using Plugins
+
+**Install and use plugin:**
+```python
+from features.plugin_system import PluginManager
+from pathlib import Path
+
+# Initialize manager
+manager = PluginManager()
+
+# Install plugin
+plugin_info = manager.install_plugin(
+    Path("plugins/installed/weather_plugin.py")
+)
+
+# Enable plugin
+manager.enable_plugin("weather-plugin", config={
+    "api_key": "your-api-key"
+})
+
+# Execute tool
+result = manager.execute_tool(
+    plugin_id="weather-plugin",
+    tool_name="get_weather",
+    parameters={"location": "San Francisco"}
+)
+
+print(f"Weather: {result['temperature']}°F")
+```
+
+**List and manage plugins:**
+```python
+# List all plugins
+plugins = manager.list_plugins()
+
+for plugin in plugins:
+    print(f"{plugin.metadata.name} - {plugin.status.value}")
+
+# Get plugin tools
+tools = manager.get_plugin_tools("weather-plugin")
+for tool in tools:
+    print(f"Tool: {tool.name}")
+
+# Disable plugin
+manager.disable_plugin("weather-plugin")
+
+# Uninstall plugin
+manager.uninstall_plugin("weather-plugin")
+```
+
+### Integration with Voice Agent
+
+**Register plugin tools:**
+```python
+# In OpenAIRealtimeVoiceAgent.__init__
+from features.plugin_system import PluginManager, export_tools_for_openai
+
+self.plugin_manager = PluginManager()
+
+# Auto-discover and load plugins
+self.plugin_manager.discover_and_load_all()
+
+# Enable configured plugins
+for plugin_id in config.get("enabled_plugins", []):
+    self.plugin_manager.enable_plugin(plugin_id)
+
+# Export to OpenAI format
+openai_functions = export_tools_for_openai(self.plugin_manager)
+```
+
+**Plugin management voice commands:**
+```python
+def list_plugins_tool(self) -> dict:
+    """List available plugins"""
+    plugins = self.plugin_manager.list_plugins()
+    return {
+        "plugins": [
+            {
+                "name": p.metadata.name,
+                "status": p.status.value,
+                "tools": [t.name for t in self.plugin_manager.get_plugin_tools(p.plugin_id)]
+            }
+            for p in plugins
+        ]
+    }
+
+def enable_plugin_tool(self, plugin_name: str) -> dict:
+    """Enable a plugin"""
+    # Find and enable plugin
+    ...
+```
+
+### Creating Complex Plugins
+
+**Database plugin example:**
+```python
+class DatabasePlugin(Plugin):
+    def __init__(self):
+        super().__init__()
+        self.conn = None
+
+    def on_enable(self):
+        super().on_enable()
+        db_path = self.config.get("database_path", "data.db")
+        self.conn = sqlite3.connect(db_path)
+
+    def on_disable(self):
+        super().on_disable()
+        if self.conn:
+            self.conn.close()
+
+    def get_tools(self):
+        return [
+            ToolDefinition(
+                name="execute_query",
+                description="Execute SQL query",
+                parameters=[
+                    ToolParameter("query", ToolParameterType.STRING, "SQL query", required=True)
+                ]
+            )
+        ]
+
+    def execute_tool(self, tool_name, parameters):
+        if tool_name == "execute_query":
+            cursor = self.conn.cursor()
+            cursor.execute(parameters["query"])
+            return cursor.fetchall()
+```
+
+### Voice Commands
+
+- "List available plugins" - Show all plugins
+- "Enable [plugin name]" - Enable a plugin
+- "Disable [plugin name]" - Disable a plugin
+- Use plugin tools via natural language (automatically routed)
+
+---
+
+## Testing the New Features (v2.2 + v2.3)
 
 ### Test Memory System
 
@@ -1145,12 +1500,61 @@ python3
 >>> print(f"Level 2: {order[1]}")  # Should have task2, task3
 ```
 
+### Test Session Persistence
+
+```bash
+python3
+>>> from features.session_persistence import SessionManager, MessageRole
+>>> manager = SessionManager()
+>>> # Start session
+>>> session = manager.start_session(title="Test Session")
+>>> # Add messages
+>>> manager.add_message(MessageRole.USER, "Hello")
+>>> manager.add_message(MessageRole.ASSISTANT, "Hi there")
+>>> # Get history
+>>> history = manager.get_session_history(session.id)
+>>> print(f"Messages: {len(history)}")
+>>> # Create checkpoint
+>>> checkpoint = manager.create_checkpoint("Test checkpoint", [], {})
+>>> print(f"Checkpoint created: {checkpoint.id}")
+>>> # End session
+>>> manager.end_session()
+```
+
+### Test Plugin System
+
+```bash
+python3
+>>> from features.plugin_system import PluginManager, ExamplePlugin
+>>> from pathlib import Path
+>>> manager = PluginManager()
+>>> # Create example plugin file
+>>> plugin_code = '''
+... from features.plugin_system import *
+... class TestPlugin(Plugin):
+...     def get_metadata(self):
+...         return PluginMetadata(id="test", name="Test", version="1.0.0",
+...                               description="Test plugin", author="Test")
+...     def get_tools(self):
+...         return [ToolDefinition(name="test_tool", description="Test", parameters=[])]
+...     def execute_tool(self, tool_name, parameters):
+...         return {"result": "success"}
+... '''
+>>> # Load plugin (manually create Plugin instance for testing)
+>>> plugin = ExamplePlugin()
+>>> print(f"Tools: {[t.name for t in plugin.get_tools()]}")
+>>> # Execute tool
+>>> result = plugin.execute_tool("example_tool", {"message": "test", "uppercase": True})
+>>> print(f"Result: {result}")
+```
+
 ---
 
 ## Conclusion
 
-All nine features are now fully implemented and ready for integration. Each feature is modular, well-documented, and can be used independently or together for a comprehensive AI-powered development experience.
+All eleven features are now fully implemented and ready for integration. Each feature is modular, well-documented, and can be used independently or together for a comprehensive AI-powered development experience.
 
 **v2.0 Features** (5): Collaboration Rooms, Voice Macros, Analytics, Code Review, Git Assistant
 **v2.1 Features** (2): Debugging Assistant, Testing Framework
 **v2.2 Features** (2): Agent Memory & Learning, Cross-Repository Orchestration
+**v2.3 Features** (2): Session Persistence & Recovery, Plugin System & Custom Tools
