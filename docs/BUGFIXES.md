@@ -746,3 +746,345 @@ All documentation remains accurate:
 - ✅ No API changes - all method signatures remain the same
 
 This bugfix improves resilience and does not affect any public APIs or usage patterns documented elsewhere.
+
+---
+
+# Bug #3: Plugin System - Already-Installed Plugins Not Loaded on Restart
+
+## Bug Information
+
+**Severity**: P1 (High Priority)
+**Component**: Plugin System (Feature 11)
+**Affected File**: `apps/realtime-poc/features/plugin_system.py`
+**Affected Method**: `PluginManager.discover_and_load_all()` (lines 619-632)
+**Discovery Date**: 2025-01-18
+**Reported By**: Codex Code Review
+**Status**: ✅ FIXED
+
+## Problem Description
+
+### Summary
+When `discover_and_load_all()` is called after a restart, plugins that were installed in a previous session cannot be enabled because they are never loaded into the `loaded_plugins` dictionary.
+
+### Root Cause
+The `discover_and_load_all()` method attempts to install all discovered plugins. When a plugin is already in the registry (from a previous session), `install_plugin()` raises a `ValueError` with "already installed". The code catches this exception and skips the plugin entirely, meaning the plugin module is never loaded into memory.
+
+**Problematic code (lines 626-630)**:
+```python
+try:
+    # Try to install
+    self.install_plugin(plugin_source)
+except ValueError as e:
+    # Already installed, skip
+    if "already installed" not in str(e):
+        print(f"Warning: Failed to load {plugin_source}: {e}")
+```
+
+### Why This Is a Problem
+1. **First run**: Plugin is installed → added to registry → loaded into `loaded_plugins` → can be enabled ✅
+2. **After restart**: `discover_and_load_all()` is called
+3. Plugin is already in registry, so `install_plugin()` raises `ValueError("Plugin {id} already installed")`
+4. Code catches the error and skips the plugin
+5. Plugin is NOT in `loaded_plugins`
+6. User tries to enable the plugin
+7. `enable_plugin()` checks: `plugin = self.loaded_plugins.get(plugin_id)` → returns `None`
+8. Raises: `ValueError(f"Plugin {plugin_id} not loaded")` ❌
+9. **Result**: Previously installed plugins are unusable after restart
+
+## Error Scenario
+
+### Reproduction Steps
+
+```python
+from features.plugin_system import PluginManager
+from pathlib import Path
+
+# Session 1: Install plugin
+manager = PluginManager()
+plugin_info = manager.install_plugin(Path("plugins/installed/weather_plugin.py"))
+manager.enable_plugin("weather-plugin")  # ✅ Works
+# ... use plugin ...
+# Application exits
+
+# Session 2: Restart application
+manager = PluginManager()  # New instance, registry persists
+manager.discover_and_load_all()  # Discovers installed plugin
+
+# Try to enable
+manager.enable_plugin("weather-plugin")  # ❌ FAILS
+# ValueError: Plugin weather-plugin not loaded
+```
+
+### Expected Behavior
+Previously installed plugins should be loadable and enable-able after restart.
+
+### Actual Behavior
+Previously installed plugins cannot be enabled because they're not in `loaded_plugins`.
+
+### Error Message
+```
+ValueError: Plugin weather-plugin not loaded
+```
+
+## Impact Analysis
+
+### Severity Justification: P1
+- **User Impact**: HIGH - Makes the entire plugin system unusable across restarts
+- **Frequency**: ALWAYS - Affects all plugins after any restart
+- **Workaround**: None - User must manually reinstall plugins every session
+- **Data Loss**: No data loss, but functionality completely broken
+- **Core Feature**: Affects a major new feature (Plugin System)
+
+### Affected Scenarios
+1. ✅ **Installing new plugin** - Works correctly
+2. ❌ **Enabling plugin after restart** - Fails completely
+3. ❌ **Auto-loading plugins on startup** - Plugins discovered but not loaded
+4. ❌ **Plugin persistence** - Registry persists but plugins unusable
+5. ❌ **Voice agent integration** - Cannot re-enable plugins after restart
+
+## Solution
+
+### Fix Description
+When `discover_and_load_all()` encounters an already-installed plugin, it should still load the plugin module into `loaded_plugins` even though it's already in the registry.
+
+### Code Changes
+
+**File**: `apps/realtime-poc/features/plugin_system.py`
+**Location**: Lines 619-648
+**Method**: `PluginManager.discover_and_load_all()`
+
+#### Before (Buggy Code)
+```python
+def discover_and_load_all(self):
+    """Discover and load all plugins from plugins directory"""
+    discovered = self.loader.discover_plugins()
+
+    for plugin_source in discovered:
+        try:
+            # Try to install
+            self.install_plugin(plugin_source)
+        except ValueError as e:
+            # Already installed, skip  ❌ BUG: Plugin never loaded!
+            if "already installed" not in str(e):
+                print(f"Warning: Failed to load {plugin_source}: {e}")
+        except Exception as e:
+            print(f"Error loading {plugin_source}: {e}")
+```
+
+#### After (Fixed Code)
+```python
+def discover_and_load_all(self):
+    """Discover and load all plugins from plugins directory"""
+    discovered = self.loader.discover_plugins()
+
+    for plugin_source in discovered:
+        try:
+            # Try to install
+            self.install_plugin(plugin_source)
+        except ValueError as e:
+            # If already installed, load it into memory  ✅ FIX
+            if "already installed" in str(e):
+                try:
+                    # Load plugin module
+                    if plugin_source.is_file():
+                        plugin = self.loader.load_plugin_from_file(plugin_source)
+                    else:
+                        plugin = self.loader.load_plugin_from_directory(plugin_source)
+
+                    # Get metadata
+                    metadata = plugin.get_metadata()
+
+                    # Store in loaded_plugins
+                    with self.lock:
+                        self.loaded_plugins[metadata.id] = plugin
+                except Exception as load_error:
+                    print(f"Error loading installed plugin {plugin_source}: {load_error}")
+            else:
+                print(f"Warning: Failed to load {plugin_source}: {e}")
+        except Exception as e:
+            print(f"Error loading {plugin_source}: {e}")
+```
+
+### What Changed
+1. **Added nested try-catch** for "already installed" case
+2. **Load plugin module** even when already in registry
+3. **Store in loaded_plugins** to make it available for enabling
+4. **Proper error handling** for loading failures
+
+### Why This Fix Works
+- **Separation of concerns**: Registry (persistent) vs. loaded_plugins (in-memory)
+- **Registry**: Stores plugin metadata persistently across sessions
+- **loaded_plugins**: Stores plugin instances in memory for current session
+- **Both needed**: Registry tracks what's installed, loaded_plugins enables usage
+- **Fix**: Populate loaded_plugins from registry on restart
+
+## Testing
+
+### Test Case 1: Plugin Persistence After Restart
+
+**Setup:**
+```python
+from features.plugin_system import PluginManager
+from pathlib import Path
+
+# Create test plugin file
+plugin_code = '''
+from features.plugin_system import *
+
+class TestPlugin(Plugin):
+    def get_metadata(self):
+        return PluginMetadata(
+            id="test-plugin", name="Test", version="1.0.0",
+            description="Test", author="Test"
+        )
+    def get_tools(self):
+        return []
+    def execute_tool(self, tool_name, parameters):
+        return {}
+'''
+Path("plugins/installed/test_plugin.py").write_text(plugin_code)
+```
+
+**Test:**
+```python
+# Session 1: Install
+manager1 = PluginManager()
+plugin_info = manager1.install_plugin(Path("plugins/installed/test_plugin.py"))
+print(f"Installed: {plugin_info.metadata.name}")
+print(f"In loaded_plugins: {'test-plugin' in manager1.loaded_plugins}")  # True
+
+# Simulate restart
+del manager1
+
+# Session 2: Restart
+manager2 = PluginManager()
+manager2.discover_and_load_all()
+print(f"In registry: {manager2.registry.get_plugin('test-plugin') is not None}")  # True
+print(f"In loaded_plugins: {'test-plugin' in manager2.loaded_plugins}")  # Should be True (was False before fix)
+
+# Should be able to enable
+manager2.enable_plugin("test-plugin")  # Should succeed (failed before fix)
+print("Plugin enabled successfully!")
+```
+
+**Expected Output (After Fix):**
+```
+Installed: Test
+In loaded_plugins: True
+In registry: True
+In loaded_plugins: True
+Plugin enabled successfully!
+```
+
+**Actual Output (Before Fix):**
+```
+Installed: Test
+In loaded_plugins: True
+In registry: True
+In loaded_plugins: False
+ValueError: Plugin test-plugin not loaded
+```
+
+### Test Case 2: Multiple Restarts
+
+**Test:**
+```python
+for i in range(3):
+    manager = PluginManager()
+    manager.discover_and_load_all()
+
+    # Should be able to enable every time
+    manager.enable_plugin("test-plugin")
+    print(f"Restart {i+1}: Plugin enabled ✓")
+
+    del manager
+```
+
+**Expected Output:**
+```
+Restart 1: Plugin enabled ✓
+Restart 2: Plugin enabled ✓
+Restart 3: Plugin enabled ✓
+```
+
+### Test Case 3: Voice Agent Integration
+
+**Test:**
+```python
+# Voice agent startup
+from features.plugin_system import PluginManager
+
+class VoiceAgent:
+    def __init__(self):
+        self.plugin_manager = PluginManager()
+
+        # Auto-discover and load (should work after restart)
+        self.plugin_manager.discover_and_load_all()
+
+        # Enable configured plugins
+        enabled_plugins = ["weather-plugin", "slack-plugin", "database-plugin"]
+        for plugin_id in enabled_plugins:
+            try:
+                self.plugin_manager.enable_plugin(plugin_id)
+                print(f"Enabled {plugin_id} ✓")
+            except ValueError as e:
+                print(f"Failed to enable {plugin_id}: {e}")
+
+# Should work on first run and all subsequent restarts
+agent = VoiceAgent()
+```
+
+**Expected Output:**
+```
+Enabled weather-plugin ✓
+Enabled slack-plugin ✓
+Enabled database-plugin ✓
+```
+
+## Related Files
+
+### Files Changed
+- `apps/realtime-poc/features/plugin_system.py` (1 location fixed, lines 627-648)
+
+### Documentation Updated
+- `docs/BUGFIXES.md` (this file)
+
+### No Impact On
+- `docs/features/11-plugin-system-custom-tools.md` - Usage examples remain valid
+- `docs/IMPLEMENTATION_GUIDE.md` - Integration examples still correct
+- Public API unchanged - method signature remains the same
+- Plugin lifecycle unchanged - install/enable/disable/uninstall still work the same
+
+## Regression Prevention
+
+### Code Review Checklist
+- [ ] Distinguish between persistent state (registry) and runtime state (loaded_plugins)
+- [ ] Ensure discovery/loading populates runtime state even when persistent state exists
+- [ ] Test restart scenarios for all stateful components
+- [ ] Verify auto-loading features work across restarts
+- [ ] Add unit tests for session persistence
+
+### Future Improvements
+1. Add unit tests for plugin persistence across manager instances
+2. Consider separating `discover()`, `load()`, and `install()` operations
+3. Add logging for plugin loading events
+4. Implement health check for loaded_plugins vs registry consistency
+5. Add `reload_plugin()` method for explicit reloading
+
+## Resolution
+
+**Status**: ✅ FIXED
+**Fixed By**: Claude
+**Date**: 2025-01-18
+**Verified**: Yes (plugins now load into memory even when already in registry)
+
+## Zero Documentation Debt
+
+All documentation remains accurate:
+- ✅ `docs/features/11-plugin-system-custom-tools.md` - No changes needed
+- ✅ `docs/IMPLEMENTATION_GUIDE.md` - Usage examples still valid
+- ✅ `docs/QUICK_START_NEW_FEATURES.md` - Examples still work
+- ✅ Feature behavior improved - plugins persist across restarts
+- ✅ No API changes - all method signatures remain the same
+
+This bugfix enables proper plugin persistence and makes the plugin system production-ready for voice agent integration.
