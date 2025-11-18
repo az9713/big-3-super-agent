@@ -1,6 +1,6 @@
-# Quick Start Guide - New Features (v2.0 + v2.1 + v2.2)
+# Quick Start Guide - New Features (v2.0 + v2.1 + v2.2 + v2.3)
 
-This guide helps you quickly get started with all nine features (v2.0: 5 features, v2.1: 2 features, v2.2: 2 features).
+This guide helps you quickly get started with all eleven features (v2.0: 5 features, v2.1: 2 features, v2.2: 2 features, v2.3: 2 features).
 
 ## Prerequisites
 
@@ -575,6 +575,172 @@ Check `docs/features/02-voice-command-macros.md` for complete macro examples inc
 
 ---
 
+## Feature 10: Session Persistence & Recovery System (v2.3)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.session_persistence import SessionManager, MessageRole
+>>>
+>>> # Initialize manager
+>>> manager = SessionManager()
+>>>
+>>> # Start new session
+>>> session = manager.start_session(
+...     title="Test Session",
+...     description="Testing session persistence"
+... )
+>>> print(f"Session started: {session.id}")
+>>>
+>>> # Add messages
+>>> manager.add_message(MessageRole.USER, "Hello, how are you?")
+>>> manager.add_message(MessageRole.ASSISTANT, "I'm doing well, thank you!")
+>>> manager.add_message(MessageRole.USER, "Can you help me with Python?")
+>>>
+>>> # Get conversation history
+>>> history = manager.get_session_history(session.id)
+>>> print(f"Messages in session: {len(history)}")
+>>> for msg in history:
+...     print(f"[{msg.role.value}] {msg.content[:30]}...")
+>>>
+>>> # Create checkpoint
+>>> checkpoint = manager.create_checkpoint(
+...     description="After initial greeting",
+...     agent_states=[],
+...     system_state={"messages": 3}
+... )
+>>> print(f"Checkpoint created: {checkpoint.description}")
+>>>
+>>> # List all sessions
+>>> sessions = manager.list_sessions(limit=5)
+>>> print(f"Total sessions: {len(sessions)}")
+>>>
+>>> # Export session
+>>> path = manager.export_current_session(format="json")
+>>> print(f"Session exported to: {path}")
+>>>
+>>> # End session
+>>> manager.end_session()
+>>> print("Session ended")
+```
+
+### What It Does
+
+- **Persists Conversations**: Automatically saves all messages to SQLite database
+- **Enables Resume**: Continue interrupted sessions from where you left off
+- **Crash Recovery**: Detects crashed sessions and enables recovery
+- **Snapshots**: Create point-in-time snapshots (auto and manual)
+- **Rollback**: Restore session to previous checkpoint
+- **Export/Import**: Share and archive sessions as JSON files
+- **Session Search**: Find past conversations by status, date, or content
+
+---
+
+## Feature 11: Plugin System & Custom Tools (v2.3)
+
+### Quick Test
+
+```python
+>>> from apps.realtime_poc.features.plugin_system import (
+...     Plugin, PluginManager, PluginMetadata,
+...     ToolDefinition, ToolParameter, ToolParameterType
+... )
+>>> from pathlib import Path
+>>>
+>>> # Create a simple test plugin
+>>> class GreetingPlugin(Plugin):
+...     def get_metadata(self):
+...         return PluginMetadata(
+...             id="greeting-plugin",
+...             name="Greeting Plugin",
+...             version="1.0.0",
+...             description="Simple greeting tool",
+...             author="Test User"
+...         )
+...
+...     def get_tools(self):
+...         return [
+...             ToolDefinition(
+...                 name="greet",
+...                 description="Generate a greeting",
+...                 parameters=[
+...                     ToolParameter(
+...                         name="name",
+...                         type=ToolParameterType.STRING,
+...                         description="Name to greet",
+...                         required=True
+...                     ),
+...                     ToolParameter(
+...                         name="formal",
+...                         type=ToolParameterType.BOOLEAN,
+...                         description="Use formal greeting",
+...                         required=False,
+...                         default=False
+...                     )
+...                 ],
+...                 returns="Greeting message"
+...             )
+...         ]
+...
+...     def execute_tool(self, tool_name, parameters):
+...         if tool_name == "greet":
+...             name = parameters["name"]
+...             formal = parameters.get("formal", False)
+...             if formal:
+...                 return f"Good day, {name}."
+...             return f"Hey {name}!"
+>>>
+>>> # Test plugin directly
+>>> plugin = GreetingPlugin()
+>>> metadata = plugin.get_metadata()
+>>> print(f"Plugin: {metadata.name} v{metadata.version}")
+>>>
+>>> tools = plugin.get_tools()
+>>> print(f"Tools: {[t.name for t in tools]}")
+>>>
+>>> # Execute tool
+>>> result = plugin.execute_tool("greet", {"name": "Alice", "formal": True})
+>>> print(f"Result: {result}")
+>>>
+>>> result = plugin.execute_tool("greet", {"name": "Bob"})
+>>> print(f"Result: {result}")
+>>>
+>>> # Test with PluginManager (using built-in example)
+>>> from apps.realtime_poc.features.plugin_system import ExamplePlugin
+>>> manager = PluginManager()
+>>>
+>>> # Manually add example plugin
+>>> example = ExamplePlugin()
+>>> metadata = example.get_metadata()
+>>> manager.loaded_plugins[metadata.id] = example
+>>> plugin_info = manager.registry.register_plugin(metadata.id, metadata)
+>>> manager.enable_plugin(metadata.id)
+>>>
+>>> # Execute example tool
+>>> result = manager.execute_tool(
+...     "example-plugin",
+...     "example_tool",
+...     {"message": "hello world", "uppercase": True}
+... )
+>>> print(f"Tool result: {result}")
+>>>
+>>> # List plugins
+>>> plugins = manager.list_plugins()
+>>> print(f"Installed plugins: {len(plugins)}")
+```
+
+### What It Does
+
+- **Extensibility**: Add custom tools without modifying core code
+- **Plugin Discovery**: Auto-load plugins from `plugins/installed` directory
+- **Tool Definitions**: Define tools with typed parameters and schemas
+- **Lifecycle Management**: Install, enable, disable, uninstall plugins
+- **OpenAI Integration**: Export plugin tools as OpenAI function definitions
+- **Configuration**: Per-plugin configuration (API keys, settings)
+- **Templates**: Quick-start templates for creating new plugins
+
+---
+
 ## Integration with Voice Agent
 
 All features are designed to integrate with the main voice agent. See `docs/IMPLEMENTATION_GUIDE.md` for complete integration instructions.
@@ -634,6 +800,21 @@ All features are designed to integrate with the main voice agent. See `docs/IMPL
 - "Sync all repositories"
 - "Show workflow status"
 
+**Session Persistence & Recovery** (v2.3):
+- "Save checkpoint with description 'completed user auth feature'"
+- "List my checkpoints"
+- "Roll back to checkpoint [checkpoint-id]"
+- "Export this session"
+- "Resume session [session-id]"
+- "Show my recent sessions"
+
+**Plugin System & Custom Tools** (v2.3):
+- "List available plugins"
+- "Enable the weather plugin"
+- "Disable the database plugin"
+- "Get weather for San Francisco" (uses plugin tool)
+- "Show tools from slack-plugin"
+
 ---
 
 ## Directory Structure After Using Features
@@ -659,14 +840,31 @@ big-3-super-agent/
 │               ├── screenshots/
 │               └── final_state.json (when archived)
 │
+├── sessions/                   # Session persistence data (v2.3)
+│   ├── session_store.db        # SQLite database for sessions
+│   ├── recovery/               # Recovery points
+│   └── exports/                # Exported sessions
+│
+├── plugins/                    # Plugin system (v2.3)
+│   ├── installed/              # Installed plugins
+│   │   ├── weather_plugin.py
+│   │   └── ...
+│   └── registry.json           # Plugin metadata
+│
 └── apps/realtime-poc/
     └── features/             # Feature implementations
         ├── __init__.py
-        ├── collaboration_rooms.py
-        ├── macros.py
-        ├── analytics.py
-        ├── code_review.py
-        └── git_assistant.py
+        ├── collaboration_rooms.py (v2.0)
+        ├── macros.py (v2.0)
+        ├── analytics.py (v2.0)
+        ├── code_review.py (v2.0)
+        ├── git_assistant.py (v2.0)
+        ├── debugging.py (v2.1)
+        ├── testing.py (v2.1)
+        ├── memory.py (v2.2)
+        ├── cross_repo.py (v2.2)
+        ├── session_persistence.py (v2.3)
+        └── plugin_system.py (v2.3)
 ```
 
 ---
@@ -718,4 +916,4 @@ For issues or questions:
 2. Review feature documentation: `docs/features/`
 3. Examine the code: `apps/realtime-poc/features/`
 
-All features are production-ready and fully documented!
+All eleven features (v2.0-v2.3) are production-ready and fully documented!

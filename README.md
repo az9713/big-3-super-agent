@@ -35,6 +35,13 @@ Phase 2 introduces intelligent learning and multi-repository capabilities:
 8. **🧠 Agent Memory & Learning System** - Tracks interactions, learns from patterns, builds searchable knowledge base for continuous improvement
 9. **🔗 Cross-Repository Agent Orchestration** - Coordinates agents across multiple repositories with dependency resolution and workflow automation
 
+## 📦 Phase 3 Features (v2.3)
+
+Phase 3 adds session management and extensibility:
+
+10. **💾 Session Persistence & Recovery System** - Automatic conversation history persistence, session resume, crash recovery, and rollback capabilities
+11. **🔌 Plugin System & Custom Tools** - Extensibility framework for creating custom agent tools and integrating third-party services
+
 See [IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md) for detailed usage and integration instructions.
 
 ## Requirements
@@ -151,7 +158,9 @@ big-3-super-agent/
 │       ├── 06-debugging-assistant.md (v2.1)
 │       ├── 07-testing-framework.md (v2.1)
 │       ├── 08-agent-memory-learning.md (v2.2)
-│       └── 09-cross-repository-orchestration.md (v2.2)
+│       ├── 09-cross-repository-orchestration.md (v2.2)
+│       ├── 10-session-persistence-recovery.md (v2.3)
+│       └── 11-plugin-system-custom-tools.md (v2.3)
 ├── apps/
 │   ├── content-gen/           # Agent working directory (default - you can change this to any directory you want)
 │   │   ├── agents/            # Agent session registries
@@ -164,7 +173,7 @@ big-3-super-agent/
 │   │   └── logs/              # Agent execution logs
 │   └── realtime-poc/          # Main orchestrator
 │       ├── big_three_realtime_agents.py  # Main entry point
-│       ├── features/          # New feature modules (v2.0 + v2.1 + v2.2)
+│       ├── features/          # New feature modules (v2.0 + v2.1 + v2.2 + v2.3)
 │       │   ├── collaboration_rooms.py   # Multi-agent coordination (v2.0)
 │       │   ├── macros.py                # Workflow automation (v2.0)
 │       │   ├── analytics.py             # Performance metrics (v2.0)
@@ -173,7 +182,9 @@ big-3-super-agent/
 │       │   ├── debugging.py             # Debugging assistant (v2.1)
 │       │   ├── testing.py               # Testing framework (v2.1)
 │       │   ├── memory.py                # Agent memory & learning (v2.2)
-│       │   └── cross_repo.py            # Cross-repo orchestration (v2.2)
+│       │   ├── cross_repo.py            # Cross-repo orchestration (v2.2)
+│       │   ├── session_persistence.py   # Session persistence & recovery (v2.3)
+│       │   └── plugin_system.py         # Plugin system & custom tools (v2.3)
 │       ├── prompts/           # System prompts for agents
 │       │   └── super_agent/   # Orchestrator prompts
 │       └── output_logs/       # Voice agent logs & screenshots
@@ -303,6 +314,10 @@ This project is powered by cutting-edge AI technologies:
 **v2.2 Phase 2 (2 features)**:
 - **✅ Agent learning**: Memory system tracks interactions, learns patterns, builds searchable knowledge base
 - **✅ Multi-repo orchestration**: Coordinates agents across multiple repositories with dependency resolution
+
+**v2.3 Phase 3 (2 features)**:
+- **✅ Session management**: Automatic conversation history persistence, session resume, and crash recovery
+- **✅ Plugin system**: Extensibility framework for custom tools and third-party integrations
 
 **Infrastructure**:
 - **✅ Modular architecture**: Features implemented as separate modules in `apps/realtime-poc/features/`
